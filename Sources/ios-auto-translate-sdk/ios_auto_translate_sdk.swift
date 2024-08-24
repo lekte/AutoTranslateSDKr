@@ -1,5 +1,3 @@
-import Foundation
-import UIKit
 import SwiftUI
 
 public class AutoTranslateSDK {
@@ -23,10 +21,10 @@ public class AutoTranslateSDK {
             return
         }
         currentLanguage = language
-        applyTranslations()
+        NotificationCenter.default.post(name: Notification.Name("LanguageChanged"), object: nil)
     }
 
-    private func translate(_ text: String, to targetLanguage: String, completion: @escaping (Result<String, Error>) -> Void) {
+    public func translate(_ text: String, to targetLanguage: String, completion: @escaping (Result<String, Error>) -> Void) {
         if let cachedTranslation = translations["\(targetLanguage):\(text)"] {
             completion(.success(cachedTranslation))
             return
@@ -85,74 +83,35 @@ public class AutoTranslateSDK {
             }
         }.resume()
     }
+}
 
-    private func translateAllTextElements(in view: UIView) {
-        for subview in view.subviews {
-            translateUIElement(subview)
-            translateAllTextElements(in: subview)
-        }
+public struct TranslatableText: View {
+    @State private var translatedText: String
+    private let originalText: String
+
+    public init(_ text: String) {
+        self.originalText = text
+        self._translatedText = State(initialValue: text)
     }
 
-    private func translateUIElement(_ element: UIView) {
-        if let label = element as? UILabel {
-            translateAndApply(label.text ?? "", to: label) { translatedText in
-                label.text = translatedText
+    public var body: some View {
+        Text(translatedText)
+            .onAppear(perform: translate)
+            .onReceive(NotificationCenter.default.publisher(for: Notification.Name("LanguageChanged"))) { _ in
+                translate()
             }
-        } else if let button = element as? UIButton {
-            translateAndApply(button.title(for: .normal) ?? "", to: button) { translatedText in
-                button.setTitle(translatedText, for: .normal)
-            }
-        } else if let textField = element as? UITextField {
-            translateAndApply(textField.text ?? "", to: textField) { translatedText in
-                textField.text = translatedText
-            }
-        } else if let textView = element as? UITextView {
-            translateAndApply(textView.text, to: textView) { translatedText in
-                textView.text = translatedText
-            }
-        }
     }
 
-    private func translateAndApply(_ text: String, to view: UIView, apply: @escaping (String) -> Void) {
-        translate(text, to: currentLanguage) { [weak self, weak view] result in
+    private func translate() {
+        AutoTranslateSDK.shared.translate(originalText, to: AutoTranslateSDK.shared.currentLanguage) { result in
             switch result {
-            case .success(let translatedText):
+            case .success(let translated):
                 DispatchQueue.main.async {
-                    apply(translatedText)
-                    self?.adjustConstraints(for: view!)
+                    self.translatedText = translated
                 }
             case .failure(let error):
                 print("Translation error: \(error)")
             }
-        }
-    }
-
-    private func adjustConstraints(for view: UIView) {
-        view.setNeedsLayout()
-        view.layoutIfNeeded()
-    }
-
-    public func applyTranslations() {
-        guard let window = UIApplication.shared.windows.first(where: { $0.isKeyWindow }) else { return }
-        translateAllTextElements(in: window)
-    }
-
-    public func autoTranslateApp() {
-        NotificationCenter.default.addObserver(forName: UIApplication.didFinishLaunchingNotification, object: nil, queue: .main) { [weak self] _ in
-            self?.applyTranslations()
-        }
-        
-        NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
-            self?.applyTranslations()
-        }
-    }
-}
-
-@available(iOS 14.0, *)
-public extension View {
-    func autoTranslate() -> some View {
-        self.onAppear {
-            AutoTranslateSDK.shared.applyTranslations()
         }
     }
 }
