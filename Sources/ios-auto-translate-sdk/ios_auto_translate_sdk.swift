@@ -3,6 +3,9 @@ import UIKit
 import SwiftUI
 import Combine
 
+
+@available(iOS 14.0, *)
+
 // 1. TranslationManager Class
 public class TranslationManager: ObservableObject {
     @Published var currentLocale: Locale = Locale(identifier: "en")
