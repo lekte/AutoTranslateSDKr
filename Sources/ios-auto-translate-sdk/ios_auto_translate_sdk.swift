@@ -65,6 +65,8 @@ public class TranslationManager: ObservableObject {
     }
 }
 
+@available(iOS 14.0, *)
+
 // 2. Automatic Translation Handling for UIKit Components
 public extension TranslationManager {
     
