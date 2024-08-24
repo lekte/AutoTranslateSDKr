@@ -24,13 +24,9 @@ public class AutoTranslateSDK {
         NotificationCenter.default.post(name: Notification.Name("LanguageChanged"), object: nil)
     }
 
-    public func translate(_ text: String, to targetLanguage: String, completion: @escaping (Result<String, Error>) -> Void) {
-        if let cachedTranslation = translations["\(targetLanguage):\(text)"] {
-            completion(.success(cachedTranslation))
-            return
-        }
-
-        let prompt = "Translate the following text to \(targetLanguage): \(text)"
+public func translateText(_ text: String, completion: @escaping (String) -> Void) {
+        let prompt = "Translate the following text to \(currentLanguage): \(text)"
+        
         let requestBody: [String: Any] = [
             "model": "gpt-3.5-turbo",
             "messages": [
@@ -40,7 +36,7 @@ public class AutoTranslateSDK {
         ]
 
         guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else {
-            completion(.failure(NSError(domain: "InvalidURL", code: 0, userInfo: nil)))
+            completion(text) // Return original text if URL is invalid
             return
         }
 
@@ -52,18 +48,19 @@ public class AutoTranslateSDK {
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
         } catch {
-            completion(.failure(error))
+            completion(text) // Return original text if request encoding fails
             return
         }
 
         URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
-                completion(.failure(error))
+                print("Translation error: \(error)")
+                completion(text) // Return original text if there's an error
                 return
             }
 
             guard let data = data else {
-                completion(.failure(NSError(domain: "NoData", code: 0, userInfo: nil)))
+                completion(text) // Return original text if no data is received
                 return
             }
 
@@ -73,13 +70,15 @@ public class AutoTranslateSDK {
                    let firstChoice = choices.first,
                    let message = firstChoice["message"] as? [String: Any],
                    let translatedText = message["content"] as? String {
-                    self.translations["\(targetLanguage):\(text)"] = translatedText
-                    completion(.success(translatedText))
+                    DispatchQueue.main.async {
+                        completion(translatedText)
+                    }
                 } else {
-                    completion(.failure(NSError(domain: "InvalidResponse", code: 0, userInfo: nil)))
+                    completion(text) // Return original text if response parsing fails
                 }
             } catch {
-                completion(.failure(error))
+                print("JSON parsing error: \(error)")
+                completion(text) // Return original text if JSON parsing fails
             }
         }.resume()
     }
