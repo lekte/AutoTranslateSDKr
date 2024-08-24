@@ -148,6 +148,7 @@ public class AutoTranslateSDK {
     }
 }
 
+@available(iOS 14.0, *)
 public extension View {
     func autoTranslate() -> some View {
         self.onAppear {
