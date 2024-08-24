@@ -63,45 +63,55 @@ public class TranslationManager: ObservableObject {
         
         task.resume()
     }
-}
 
-@available(iOS 14.0, *)
+    @available(iOS 14.0, *)
 
-// 2. Automatic Translation Handling for UIKit Components
-public extension TranslationManager {
     
-    func translateLabel(_ label: UILabel) {
-        guard let text = label.text else { return }
-        self.translate(text) { translatedText in
-            DispatchQueue.main.async {
-                label.text = translatedText
+    // 2. Automatic Translation Handling for UIKit Components
+    public func translateAllLabels(in view: UIView) {
+        let labels = view.subviews.compactMap { $0 as? UILabel }
+        labels.forEach { label in
+            guard let text = label.text else { return }
+            self.translate(text) { translatedText in
+                DispatchQueue.main.async {
+                    label.text = translatedText
+                }
             }
         }
     }
     
-    func translateTextField(_ textField: UITextField) {
-        guard let text = textField.placeholder else { return }
-        self.translate(text) { translatedText in
-            DispatchQueue.main.async {
-                textField.placeholder = translatedText
+    public func translateAllTextFields(in view: UIView) {
+        let textFields = view.subviews.compactMap { $0 as? UITextField }
+        textFields.forEach { textField in
+            guard let text = textField.placeholder else { return }
+            self.translate(text) { translatedText in
+                DispatchQueue.main.async {
+                    textField.placeholder = translatedText
+                }
             }
         }
     }
     
-    func translateTextView(_ textView: UITextView) {
-        guard let text = textView.text else { return }
-        self.translate(text) { translatedText in
-            DispatchQueue.main.async {
-                textView.text = translatedText
+    public func translateAllTextViews(in view: UIView) {
+        let textViews = view.subviews.compactMap { $0 as? UITextView }
+        textViews.forEach { textView in
+            guard let text = textView.text else { return }
+            self.translate(text) { translatedText in
+                DispatchQueue.main.async {
+                    textView.text = translatedText
+                }
             }
         }
     }
     
-    func translateButton(_ button: UIButton) {
-        guard let text = button.title(for: .normal) else { return }
-        self.translate(text) { translatedText in
-            DispatchQueue.main.async {
-                button.setTitle(translatedText, for: .normal)
+    public func translateAllButtons(in view: UIView) {
+        let buttons = view.subviews.compactMap { $0 as? UIButton }
+        buttons.forEach { button in
+            guard let text = button.title(for: .normal) else { return }
+            self.translate(text) { translatedText in
+                DispatchQueue.main.async {
+                    button.setTitle(translatedText, for: .normal)
+                }
             }
         }
     }
