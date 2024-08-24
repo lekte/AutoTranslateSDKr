@@ -85,6 +85,8 @@ public class AutoTranslateSDK {
     }
 }
 
+@available(iOS 14.0, *)
+
 public struct TranslatableText: View {
     @State private var translatedText: String
     private let originalText: String
