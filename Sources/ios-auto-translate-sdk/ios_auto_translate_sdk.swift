@@ -175,11 +175,15 @@ struct TransformableText: View {
     }
 }
 
+@available(iOS 14.0, *)
+
 extension Text {
     func transformText(_ transform: @escaping (String) -> String) -> some View {
         self.modifier(TextTransformModifier(transform: transform))
     }
 }
+
+@available(iOS 14.0, *)
 
 extension Button where Label == Text {
     func transformText(_ transform: @escaping (String) -> String) -> some View {
@@ -187,11 +191,15 @@ extension Button where Label == Text {
     }
 }
 
+@available(iOS 14.0, *)
+
 extension TextField where Label == Text {
     func transformText(_ transform: @escaping (String) -> String) -> some View {
         self.modifier(TextTransformModifier(transform: transform))
     }
 }
+
+@available(iOS 14.0, *)
 
 struct TextTransformModifier: ViewModifier {
     let transform: (String) -> String
@@ -227,4 +235,3 @@ struct TransformTextPreferenceKey: PreferenceKey {
     }
 }
 
-}
