@@ -86,33 +86,76 @@ public func translateText(_ text: String, completion: @escaping (String) -> Void
 
 @available(iOS 14.0, *)
 
-public struct TranslatableText: View {
-    @State private var translatedText: String
-    private let originalText: String
-
-    public init(_ text: String) {
-        self.originalText = text
-        self._translatedText = State(initialValue: text)
+public struct TranslatableText<Content: View>: View {
+    @ViewBuilder let content: () -> Content
+    @State private var translatedStrings: [String: String] = [:]
+    
+    public init(@ViewBuilder content: @escaping () -> Content) {
+        self.content = content
     }
-
+    
     public var body: some View {
-        Text(translatedText)
-            .onAppear(perform: translate)
+        content()
+            .transformEnvironment(\.self) { view in
+                view.transformText { string in
+                    if let translated = translatedStrings[string] {
+                        return translated
+                    } else {
+                        AutoTranslateSDK.shared.translateText(string) { translated in
+                            translatedStrings[string] = translated
+                        }
+                        return string
+                    }
+                }
+            }
             .onReceive(NotificationCenter.default.publisher(for: Notification.Name("LanguageChanged"))) { _ in
-                translate()
+                translatedStrings.removeAll()
             }
     }
+}
 
-    private func translate() {
-        AutoTranslateSDK.shared.translate(originalText, to: AutoTranslateSDK.shared.currentLanguage) { result in
-            switch result {
-            case .success(let translated):
-                DispatchQueue.main.async {
-                    self.translatedText = translated
+extension View {
+    func transformText(_ transform: @escaping (String) -> String) -> some View {
+        self.transformEffect(.init(transform))
+    }
+}
+
+struct TransformTextEffect: ViewModifier {
+    let transform: (String) -> String
+    
+    func body(content: Content) -> some View {
+        content.background(
+            GeometryReader { geo in
+                Color.clear.preference(
+                    key: TransformTextPreferenceKey.self,
+                    value: [(geo.frame(in: .global), transform)]
+                )
+            }
+        )
+        .overlayPreferenceValue(TransformTextPreferenceKey.self) { preferences in
+            ZStack {
+                ForEach(Array(preferences.enumerated()), id: \.offset) { _, preference in
+                    Text(verbatim: transform(preference.1(content)))
+                        .fixedSize()
+                        .frame(width: preference.0.width, height: preference.0.height)
+                        .offset(x: preference.0.minX, y: preference.0.minY)
                 }
-            case .failure(let error):
-                print("Translation error: \(error)")
             }
         }
     }
 }
+
+struct TransformTextPreferenceKey: PreferenceKey {
+    static var defaultValue: [(CGRect, (Text) -> String)] = []
+    
+    static func reduce(value: inout [(CGRect, (Text) -> String)], nextValue: () -> [(CGRect, (Text) -> String)]) {
+        value.append(contentsOf: nextValue())
+    }
+}
+
+extension ViewEffect where Self == TransformTextEffect {
+    static func `init`(_ transform: @escaping (String) -> String) -> Self {
+        TransformTextEffect(transform: transform)
+    }
+}
+
