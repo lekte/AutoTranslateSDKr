@@ -137,45 +137,94 @@ struct TransformTextModifier: ViewModifier {
             GeometryReader { geo in
                 Color.clear.preference(
                     key: TransformTextPreferenceKey.self,
-                    value: [(geo.frame(in: .global), { text in
-                        if let textString = (text as? Text)?.verbatim {
-                            return transform(textString)
-                        }
-                        return ""
-                    })]
+                    value: [(geo.frame(in: .global), transform)]
                 )
             }
         )
+        .transformEffect(.identity) // This forces SwiftUI to create a new view identity
         .overlayPreferenceValue(TransformTextPreferenceKey.self) { preferences in
             ZStack {
                 ForEach(Array(preferences.enumerated()), id: \.offset) { _, preference in
-                    if let text = findText(in: content) {
-                        Text(verbatim: transform(text.verbatim ?? ""))
-                            .fixedSize()
-                            .frame(width: preference.0.width, height: preference.0.height)
-                            .offset(x: preference.0.minX, y: preference.0.minY)
-                    }
+                    TransformableText(original: content, transform: transform)
+                        .fixedSize()
+                        .frame(width: preference.0.width, height: preference.0.height)
+                        .offset(x: preference.0.minX, y: preference.0.minY)
                 }
             }
         }
     }
+}
+
+@available(iOS 14.0, *)
+struct TransformableText: View {
+    let original: Any
+    let transform: (String) -> String
     
-    private func findText(in view: Content) -> Text? {
-        let mirror = Mirror(reflecting: view)
-        for child in mirror.children {
-            if let text = child.value as? Text {
-                return text
+    var body: some View {
+        Group {
+            if let text = original as? Text {
+                text.transformText(transform)
+            } else if let button = original as? Button<Text> {
+                button.transformText(transform)
+            } else if let textField = original as? TextField<Text> {
+                textField.transformText(transform)
+            } else {
+                AnyView(original as? (any View) ?? EmptyView())
             }
         }
-        return nil
+    }
+}
+
+extension Text {
+    func transformText(_ transform: @escaping (String) -> String) -> some View {
+        self.modifier(TextTransformModifier(transform: transform))
+    }
+}
+
+extension Button where Label == Text {
+    func transformText(_ transform: @escaping (String) -> String) -> some View {
+        self.modifier(TextTransformModifier(transform: transform))
+    }
+}
+
+extension TextField where Label == Text {
+    func transformText(_ transform: @escaping (String) -> String) -> some View {
+        self.modifier(TextTransformModifier(transform: transform))
+    }
+}
+
+struct TextTransformModifier: ViewModifier {
+    let transform: (String) -> String
+    
+    func body(content: Content) -> some View {
+        content.overlay(
+            GeometryReader { geo in
+                Text(transform(extractString(from: content)))
+                    .fixedSize()
+                    .frame(width: geo.size.width, height: geo.size.height)
+            }
+        )
+        .opacity(0) // Hide the original content
+    }
+    
+    private func extractString(from content: Content) -> String {
+        let mirror = Mirror(reflecting: content)
+        for child in mirror.children {
+            if let string = child.value as? String {
+                return string
+            }
+        }
+        return ""
     }
 }
 
 @available(iOS 14.0, *)
 struct TransformTextPreferenceKey: PreferenceKey {
-    static var defaultValue: [(CGRect, (Text) -> String)] = []
+    static var defaultValue: [(CGRect, (String) -> String)] = []
     
-    static func reduce(value: inout [(CGRect, (Text) -> String)], nextValue: () -> [(CGRect, (Text) -> String)]) {
+    static func reduce(value: inout [(CGRect, (String) -> String)], nextValue: () -> [(CGRect, (String) -> String)]) {
         value.append(contentsOf: nextValue())
     }
+}
+
 }
