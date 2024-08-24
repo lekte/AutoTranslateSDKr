@@ -3,6 +3,8 @@ import UIKit
 import SwiftUI
 import Combine
 
+@available(iOS 14.0, *)
+
 public class TranslationManager: ObservableObject {
     @Published var currentLocale: Locale = Locale(identifier: "es")  // Set to Spanish
     private let apiKey: String
