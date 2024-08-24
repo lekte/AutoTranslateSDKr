@@ -6,7 +6,7 @@ public class AutoTranslateSDK {
     private var apiKey: String = ""
     private let supportedLanguages = ["es", "fr", "de", "it", "pt", "nl", "ru", "ja", "ko", "zh"]
     private var translations: [String: String] = [:]
-    private var currentLanguage: String = "en"
+    public var currentLanguage: String = "en"
 
     private init() {}
 
