@@ -25,7 +25,7 @@ public class AutoTranslateSDK {
         NotificationCenter.default.post(name: Notification.Name("LanguageChanged"), object: nil)
     }
 
-public func translateText(_ text: String, completion: @escaping (String) -> Void) {
+    public func translateText(_ text: String, completion: @escaping (String) -> Void) {
         let prompt = "Translate the following text to \(currentLanguage): \(text)"
         
         let requestBody: [String: Any] = [
@@ -37,7 +37,7 @@ public func translateText(_ text: String, completion: @escaping (String) -> Void
         ]
 
         guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else {
-            completion(text) // Return original text if URL is invalid
+            completion(text)
             return
         }
 
@@ -49,19 +49,19 @@ public func translateText(_ text: String, completion: @escaping (String) -> Void
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
         } catch {
-            completion(text) // Return original text if request encoding fails
+            completion(text)
             return
         }
 
         URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
                 print("Translation error: \(error)")
-                completion(text) // Return original text if there's an error
+                completion(text)
                 return
             }
 
             guard let data = data else {
-                completion(text) // Return original text if no data is received
+                completion(text)
                 return
             }
 
@@ -75,16 +75,15 @@ public func translateText(_ text: String, completion: @escaping (String) -> Void
                         completion(translatedText)
                     }
                 } else {
-                    completion(text) // Return original text if response parsing fails
+                    completion(text)
                 }
             } catch {
                 print("JSON parsing error: \(error)")
-                completion(text) // Return original text if JSON parsing fails
+                completion(text)
             }
         }.resume()
     }
 }
-
 
 @available(iOS 14.0, *)
 public struct TranslatableText<Content: View>: View {
@@ -138,14 +137,14 @@ struct TransformTextModifier: ViewModifier {
             GeometryReader { geo in
                 Color.clear.preference(
                     key: TransformTextPreferenceKey.self,
-                    value: [(geo.frame(in: .global), { self.transform($0) })]
+                    value: [(geo.frame(in: .global), transform)]
                 )
             }
         )
         .overlayPreferenceValue(TransformTextPreferenceKey.self) { preferences in
             ZStack {
                 ForEach(Array(preferences.enumerated()), id: \.offset) { _, preference in
-                    Text(verbatim: preference.1(preference.1(content)))
+                    Text(verbatim: transform(preference.1(content)))
                         .fixedSize()
                         .frame(width: preference.0.width, height: preference.0.height)
                         .offset(x: preference.0.minX, y: preference.0.minY)
