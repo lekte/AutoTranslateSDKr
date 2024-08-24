@@ -3,7 +3,6 @@ import UIKit
 import SwiftUI
 import Combine
 
-// 1. TranslationManager Class
 public class TranslationManager: ObservableObject {
     @Published var currentLocale: Locale = Locale(identifier: "es")  // Set to Spanish
     private let apiKey: String
@@ -61,14 +60,15 @@ public class TranslationManager: ObservableObject {
         task.resume()
     }
     
-    // 2. Automatic Translation Handling for UIKit Components
-    public func translateAllTextInViewHierarchy(_ view: UIView) {
+    // Function to translate all components in the view hierarchy
+    public func translateAllTextInViewHierarchy(view: UIView) {
         translateAllLabels(in: view)
         translateAllTextFields(in: view)
         translateAllTextViews(in: view)
         translateAllButtons(in: view)
     }
     
+    // Private helper functions
     private func translateAllLabels(in view: UIView) {
         for subview in view.subviews {
             if let label = subview as? UILabel {
