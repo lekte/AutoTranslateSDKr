@@ -1,5 +1,6 @@
 import SwiftUI
 
+@available(iOS 14.0, *)
 public class AutoTranslateSDK {
     public static let shared = AutoTranslateSDK()
     
@@ -84,9 +85,8 @@ public func translateText(_ text: String, completion: @escaping (String) -> Void
     }
 }
 
+
 @available(iOS 14.0, *)
-
-
 public struct TranslatableText<Content: View>: View {
     @ViewBuilder let content: () -> Content
     @State private var translatedStrings: [String: String] = [:]
@@ -97,18 +97,7 @@ public struct TranslatableText<Content: View>: View {
     
     public var body: some View {
         content()
-            .transformEnvironment(\.self) { view in
-                view.transformText { string in
-                    if let translated = translatedStrings[string] {
-                        return translated
-                    } else {
-                        AutoTranslateSDK.shared.translateText(string) { translated in
-                            translatedStrings[string] = translated
-                        }
-                        return string
-                    }
-                }
-            }
+            .modifier(TranslateTextModifier(translatedStrings: $translatedStrings))
             .onReceive(NotificationCenter.default.publisher(for: Notification.Name("LanguageChanged"))) { _ in
                 translatedStrings.removeAll()
             }
@@ -116,18 +105,32 @@ public struct TranslatableText<Content: View>: View {
 }
 
 @available(iOS 14.0, *)
-
-
-extension View {
-    func transformText(_ transform: @escaping (String) -> String) -> some View {
-        self.transformEffect(.init(transform))
+struct TranslateTextModifier: ViewModifier {
+    @Binding var translatedStrings: [String: String]
+    
+    func body(content: Content) -> some View {
+        content.transformText { string in
+            if let translated = translatedStrings[string] {
+                return translated
+            } else {
+                AutoTranslateSDK.shared.translateText(string) { translated in
+                    translatedStrings[string] = translated
+                }
+                return string
+            }
+        }
     }
 }
 
 @available(iOS 14.0, *)
+extension View {
+    func transformText(_ transform: @escaping (String) -> String) -> some View {
+        self.modifier(TransformTextModifier(transform: transform))
+    }
+}
 
-
-struct TransformTextEffect: ViewModifier {
+@available(iOS 14.0, *)
+struct TransformTextModifier: ViewModifier {
     let transform: (String) -> String
     
     func body(content: Content) -> some View {
@@ -135,14 +138,14 @@ struct TransformTextEffect: ViewModifier {
             GeometryReader { geo in
                 Color.clear.preference(
                     key: TransformTextPreferenceKey.self,
-                    value: [(geo.frame(in: .global), transform)]
+                    value: [(geo.frame(in: .global), { self.transform($0) })]
                 )
             }
         )
         .overlayPreferenceValue(TransformTextPreferenceKey.self) { preferences in
             ZStack {
                 ForEach(Array(preferences.enumerated()), id: \.offset) { _, preference in
-                    Text(verbatim: transform(preference.1(content)))
+                    Text(verbatim: preference.1(preference.1(content)))
                         .fixedSize()
                         .frame(width: preference.0.width, height: preference.0.height)
                         .offset(x: preference.0.minX, y: preference.0.minY)
@@ -153,8 +156,6 @@ struct TransformTextEffect: ViewModifier {
 }
 
 @available(iOS 14.0, *)
-
-
 struct TransformTextPreferenceKey: PreferenceKey {
     static var defaultValue: [(CGRect, (Text) -> String)] = []
     
@@ -162,10 +163,3 @@ struct TransformTextPreferenceKey: PreferenceKey {
         value.append(contentsOf: nextValue())
     }
 }
-
-extension ViewEffect where Self == TransformTextEffect {
-    static func `init`(_ transform: @escaping (String) -> String) -> Self {
-        TransformTextEffect(transform: transform)
-    }
-}
-
