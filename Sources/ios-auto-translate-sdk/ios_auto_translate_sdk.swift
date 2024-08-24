@@ -124,6 +124,9 @@ extension View {
     }
 }
 
+@available(iOS 14.0, *)
+
+
 struct TransformTextEffect: ViewModifier {
     let transform: (String) -> String
     
