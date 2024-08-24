@@ -137,20 +137,37 @@ struct TransformTextModifier: ViewModifier {
             GeometryReader { geo in
                 Color.clear.preference(
                     key: TransformTextPreferenceKey.self,
-                    value: [(geo.frame(in: .global), transform)]
+                    value: [(geo.frame(in: .global), { text in
+                        if let textString = (text as? Text)?.verbatim {
+                            return transform(textString)
+                        }
+                        return ""
+                    })]
                 )
             }
         )
         .overlayPreferenceValue(TransformTextPreferenceKey.self) { preferences in
             ZStack {
                 ForEach(Array(preferences.enumerated()), id: \.offset) { _, preference in
-                    Text(verbatim: transform(preference.1(content)))
-                        .fixedSize()
-                        .frame(width: preference.0.width, height: preference.0.height)
-                        .offset(x: preference.0.minX, y: preference.0.minY)
+                    if let text = findText(in: content) {
+                        Text(verbatim: transform(text.verbatim ?? ""))
+                            .fixedSize()
+                            .frame(width: preference.0.width, height: preference.0.height)
+                            .offset(x: preference.0.minX, y: preference.0.minY)
+                    }
                 }
             }
         }
+    }
+    
+    private func findText(in view: Content) -> Text? {
+        let mirror = Mirror(reflecting: view)
+        for child in mirror.children {
+            if let text = child.value as? Text {
+                return text
+            }
+        }
+        return nil
     }
 }
 
