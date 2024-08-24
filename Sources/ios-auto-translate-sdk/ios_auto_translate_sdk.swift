@@ -1,26 +1,38 @@
-#if canImport(FoundationNetworking)
-import FoundationNetworking
-#endif
 import Foundation
 import UIKit
-import ObjectiveC
+import SwiftUI
 
 public class AutoTranslateSDK {
-    private let apiKey: String
+    public static let shared = AutoTranslateSDK()
+    
+    private var apiKey: String = ""
     private let supportedLanguages = ["es", "fr", "de", "it", "pt", "nl", "ru", "ja", "ko", "zh"]
+    private var translations: [String: String] = [:]
+    private var currentLanguage: String = "en"
 
-    public init(apiKey: String) {
+    private init() {}
+
+    public func configure(withAPIKey apiKey: String, initialLanguage: String = "en") {
         self.apiKey = apiKey
+        setLanguage(initialLanguage)
     }
 
-    public func translate(_ text: String, to targetLanguage: String, completion: @escaping (Result<String, Error>) -> Void) {
-        guard supportedLanguages.contains(targetLanguage) else {
-            completion(.failure(TranslationError.unsupportedLanguage))
+    public func setLanguage(_ language: String) {
+        guard supportedLanguages.contains(language) else {
+            print("Unsupported language: \(language)")
+            return
+        }
+        currentLanguage = language
+        applyTranslations()
+    }
+
+    private func translate(_ text: String, to targetLanguage: String, completion: @escaping (Result<String, Error>) -> Void) {
+        if let cachedTranslation = translations["\(targetLanguage):\(text)"] {
+            completion(.success(cachedTranslation))
             return
         }
 
         let prompt = "Translate the following text to \(targetLanguage): \(text)"
-
         let requestBody: [String: Any] = [
             "model": "gpt-3.5-turbo",
             "messages": [
@@ -30,7 +42,7 @@ public class AutoTranslateSDK {
         ]
 
         guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else {
-            completion(.failure(TranslationError.invalidURL))
+            completion(.failure(NSError(domain: "InvalidURL", code: 0, userInfo: nil)))
             return
         }
 
@@ -42,7 +54,7 @@ public class AutoTranslateSDK {
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
         } catch {
-            completion(.failure(TranslationError.requestEncodingFailed))
+            completion(.failure(error))
             return
         }
 
@@ -53,7 +65,7 @@ public class AutoTranslateSDK {
             }
 
             guard let data = data else {
-                completion(.failure(TranslationError.noDataReceived))
+                completion(.failure(NSError(domain: "NoData", code: 0, userInfo: nil)))
                 return
             }
 
@@ -63,121 +75,51 @@ public class AutoTranslateSDK {
                    let firstChoice = choices.first,
                    let message = firstChoice["message"] as? [String: Any],
                    let translatedText = message["content"] as? String {
+                    self.translations["\(targetLanguage):\(text)"] = translatedText
                     completion(.success(translatedText))
                 } else {
-                    completion(.failure(TranslationError.invalidResponse))
+                    completion(.failure(NSError(domain: "InvalidResponse", code: 0, userInfo: nil)))
                 }
             } catch {
-                completion(.failure(TranslationError.jsonParsingFailed))
+                completion(.failure(error))
             }
         }.resume()
     }
 
-    public func translateAllTextElements(in view: UIView, to targetLanguage: String) {
+    private func translateAllTextElements(in view: UIView) {
         for subview in view.subviews {
-            if let label = subview as? UILabel {
-                self.translate(label.text ?? "", to: targetLanguage) { [weak label] (result: Result<String, Error>) in
-                    switch result {
-                    case .success(let translatedText):
-                        DispatchQueue.main.async {
-                            label?.text = translatedText
-                            self.adjustConstraints(for: label!)
-                        }
-                    case .failure(let error):
-                        print("Translation error: \(error)")
-                    }
-                }
-            } else if let button = subview as? UIButton {
-                self.translate(button.title(for: .normal) ?? "", to: targetLanguage) { [weak button] (result: Result<String, Error>) in
-                    switch result {
-                    case .success(let translatedText):
-                        DispatchQueue.main.async {
-                            button?.setTitle(translatedText, for: .normal)
-                            self.adjustConstraints(for: button!)
-                        }
-                    case .failure(let error):
-                        print("Translation error: \(error)")
-                    }
-                }
-            } else if let textField = subview as? UITextField {
-                self.translate(textField.text ?? "", to: targetLanguage) { [weak textField] (result: Result<String, Error>) in
-                    switch result {
-                    case .success(let translatedText):
-                        DispatchQueue.main.async {
-                            textField?.text = translatedText
-                            self.adjustConstraints(for: textField!)
-                        }
-                    case .failure(let error):
-                        print("Translation error: \(error)")
-                    }
-                }
-            } else if let textView = subview as? UITextView {
-                self.translate(textView.text, to: targetLanguage) { [weak textView] (result: Result<String, Error>) in
-                    switch result {
-                    case .success(let translatedText):
-                        DispatchQueue.main.async {
-                            textView?.text = translatedText
-                            self.adjustConstraints(for: textView!)
-                        }
-                    case .failure(let error):
-                        print("Translation error: \(error)")
-                    }
-                }
-            }
-
-            translateAllTextElements(in: subview, to: targetLanguage)
+            translateUIElement(subview)
+            translateAllTextElements(in: subview)
         }
     }
 
-    private func translateLabel(_ label: UILabel, to targetLanguage: String) {
-        translate(label.text ?? "", to: targetLanguage) { result in
-            switch result {
-            case .success(let translatedText):
-                DispatchQueue.main.async {
-                    label.text = translatedText
-                    self.adjustConstraints(for: label)
-                }
-            case .failure(let error):
-                print("Translation error: \(error)")
+    private func translateUIElement(_ element: UIView) {
+        if let label = element as? UILabel {
+            translateAndApply(label.text ?? "", to: label) { translatedText in
+                label.text = translatedText
+            }
+        } else if let button = element as? UIButton {
+            translateAndApply(button.title(for: .normal) ?? "", to: button) { translatedText in
+                button.setTitle(translatedText, for: .normal)
+            }
+        } else if let textField = element as? UITextField {
+            translateAndApply(textField.text ?? "", to: textField) { translatedText in
+                textField.text = translatedText
+            }
+        } else if let textView = element as? UITextView {
+            translateAndApply(textView.text, to: textView) { translatedText in
+                textView.text = translatedText
             }
         }
     }
 
-    private func translateButton(_ button: UIButton, to targetLanguage: String) {
-        translate(button.title(for: .normal) ?? "", to: targetLanguage) { result in
+    private func translateAndApply(_ text: String, to view: UIView, apply: @escaping (String) -> Void) {
+        translate(text, to: currentLanguage) { [weak self, weak view] result in
             switch result {
             case .success(let translatedText):
                 DispatchQueue.main.async {
-                    button.setTitle(translatedText, for: .normal)
-                    self.adjustConstraints(for: button)
-                }
-            case .failure(let error):
-                print("Translation error: \(error)")
-            }
-        }
-    }
-
-    private func translateTextField(_ textField: UITextField, to targetLanguage: String) {
-        translate(textField.text ?? "", to: targetLanguage) { result in
-            switch result {
-            case .success(let translatedText):
-                DispatchQueue.main.async {
-                    textField.text = translatedText
-                    self.adjustConstraints(for: textField)
-                }
-            case .failure(let error):
-                print("Translation error: \(error)")
-            }
-        }
-    }
-
-    private func translateTextView(_ textView: UITextView, to targetLanguage: String) {
-        translate(textView.text, to: targetLanguage) { result in
-            switch result {
-            case .success(let translatedText):
-                DispatchQueue.main.async {
-                    textView.text = translatedText
-                    self.adjustConstraints(for: textView)
+                    apply(translatedText)
+                    self?.adjustConstraints(for: view!)
                 }
             case .failure(let error):
                 print("Translation error: \(error)")
@@ -189,44 +131,27 @@ public class AutoTranslateSDK {
         view.setNeedsLayout()
         view.layoutIfNeeded()
     }
-}
 
-public enum TranslationError: Error {
-    case unsupportedLanguage
-    case invalidURL
-    case requestEncodingFailed
-    case noDataReceived
-    case invalidResponse
-    case jsonParsingFailed
-}
+    private func applyTranslations() {
+        guard let window = UIApplication.shared.windows.first(where: { $0.isKeyWindow }) else { return }
+        translateAllTextElements(in: window)
+    }
 
-extension AutoTranslateSDK {
-    private func translateUIElement(_ element: UIView, to targetLanguage: String) {
-        if let label = element as? UILabel {
-            translate(label.text ?? "", to: targetLanguage) { [weak self, weak label] (result: Result<String, Error>) in
-                switch result {
-                case .success(let translatedText):
-                    DispatchQueue.main.async {
-                        label?.text = translatedText
-                        self?.adjustConstraints(for: label!)
-                    }
-                case .failure(let error):
-                    print("Translation error: \(error)")
-                }
-            }
-        } else if let button = element as? UIButton {
-            translate(button.title(for: .normal) ?? "", to: targetLanguage) { [weak self, weak button] (result: Result<String, Error>) in
-                switch result {
-                case .success(let translatedText):
-                    DispatchQueue.main.async {
-                        button?.setTitle(translatedText, for: .normal)
-                        self?.adjustConstraints(for: button!)
-                    }
-                case .failure(let error):
-                    print("Translation error: \(error)")
-                }
-            }
+    public func autoTranslateApp() {
+        NotificationCenter.default.addObserver(forName: UIApplication.didFinishLaunchingNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.applyTranslations()
         }
-        // Add more UI element types as needed
+        
+        NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.applyTranslations()
+        }
+    }
+}
+
+public extension View {
+    func autoTranslate() -> some View {
+        self.onAppear {
+            AutoTranslateSDK.shared.applyTranslations()
+        }
     }
 }
