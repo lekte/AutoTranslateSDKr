@@ -149,6 +149,9 @@ struct TransformTextEffect: ViewModifier {
     }
 }
 
+@available(iOS 14.0, *)
+
+
 struct TransformTextPreferenceKey: PreferenceKey {
     static var defaultValue: [(CGRect, (Text) -> String)] = []
     
