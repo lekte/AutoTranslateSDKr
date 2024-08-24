@@ -3,12 +3,9 @@ import UIKit
 import SwiftUI
 import Combine
 
-
-@available(iOS 14.0, *)
-
 // 1. TranslationManager Class
 public class TranslationManager: ObservableObject {
-    @Published var currentLocale: Locale = Locale(identifier: "en")
+    @Published var currentLocale: Locale = Locale(identifier: "es")  // Set to Spanish
     private let apiKey: String
     
     public init(apiKey: String) {
@@ -19,7 +16,7 @@ public class TranslationManager: ObservableObject {
         let requestBody: [String: Any] = [
             "model": "gpt-3.5-turbo",
             "messages": [
-                ["role": "system", "content": "You are a helpful assistant that translates text."],
+                ["role": "system", "content": "You are a helpful assistant that translates text into Spanish."],
                 ["role": "user", "content": text]
             ]
         ]
@@ -63,56 +60,68 @@ public class TranslationManager: ObservableObject {
         
         task.resume()
     }
-
-    @available(iOS 14.0, *)
-
     
     // 2. Automatic Translation Handling for UIKit Components
-    public func translateAllLabels(in view: UIView) {
-        let labels = view.subviews.compactMap { $0 as? UILabel }
-        labels.forEach { label in
-            guard let text = label.text else { return }
-            self.translate(text) { translatedText in
-                DispatchQueue.main.async {
-                    label.text = translatedText
+    public func translateAllTextInViewHierarchy(_ view: UIView) {
+        translateAllLabels(in: view)
+        translateAllTextFields(in: view)
+        translateAllTextViews(in: view)
+        translateAllButtons(in: view)
+    }
+    
+    private func translateAllLabels(in view: UIView) {
+        for subview in view.subviews {
+            if let label = subview as? UILabel {
+                guard let text = label.text else { continue }
+                self.translate(text) { translatedText in
+                    DispatchQueue.main.async {
+                        label.text = translatedText
+                    }
                 }
             }
+            translateAllLabels(in: subview)  // Recursive call for nested subviews
         }
     }
     
-    public func translateAllTextFields(in view: UIView) {
-        let textFields = view.subviews.compactMap { $0 as? UITextField }
-        textFields.forEach { textField in
-            guard let text = textField.placeholder else { return }
-            self.translate(text) { translatedText in
-                DispatchQueue.main.async {
-                    textField.placeholder = translatedText
+    private func translateAllTextFields(in view: UIView) {
+        for subview in view.subviews {
+            if let textField = subview as? UITextField {
+                guard let text = textField.placeholder else { continue }
+                self.translate(text) { translatedText in
+                    DispatchQueue.main.async {
+                        textField.placeholder = translatedText
+                    }
                 }
             }
+            translateAllTextFields(in: subview)  // Recursive call for nested subviews
         }
     }
     
-    public func translateAllTextViews(in view: UIView) {
-        let textViews = view.subviews.compactMap { $0 as? UITextView }
-        textViews.forEach { textView in
-            guard let text = textView.text else { return }
-            self.translate(text) { translatedText in
-                DispatchQueue.main.async {
-                    textView.text = translatedText
+    private func translateAllTextViews(in view: UIView) {
+        for subview in view.subviews {
+            if let textView = subview as? UITextView {
+                guard let text = textView.text else { continue }
+                self.translate(text) { translatedText in
+                    DispatchQueue.main.async {
+                        textView.text = translatedText
+                    }
                 }
             }
+            translateAllTextViews(in: subview)  // Recursive call for nested subviews
         }
     }
     
-    public func translateAllButtons(in view: UIView) {
-        let buttons = view.subviews.compactMap { $0 as? UIButton }
-        buttons.forEach { button in
-            guard let text = button.title(for: .normal) else { return }
-            self.translate(text) { translatedText in
-                DispatchQueue.main.async {
-                    button.setTitle(translatedText, for: .normal)
+    private func translateAllButtons(in view: UIView) {
+        for subview in view.subviews {
+            if let button = subview as? UIButton {
+                guard let text = button.title(for: .normal) else { continue }
+                self.translate(text) { translatedText in
+                    DispatchQueue.main.async {
+                        button.setTitle(translatedText, for: .normal)
+                    }
                 }
             }
+            translateAllButtons(in: subview)  // Recursive call for nested subviews
         }
     }
 }
