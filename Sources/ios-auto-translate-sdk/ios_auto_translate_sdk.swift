@@ -132,7 +132,7 @@ public class AutoTranslateSDK {
         view.layoutIfNeeded()
     }
 
-    private func applyTranslations() {
+    public func applyTranslations() {
         guard let window = UIApplication.shared.windows.first(where: { $0.isKeyWindow }) else { return }
         translateAllTextElements(in: window)
     }
