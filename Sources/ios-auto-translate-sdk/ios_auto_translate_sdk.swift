@@ -84,6 +84,8 @@ public func translateText(_ text: String, completion: @escaping (String) -> Void
     }
 }
 
+@available(iOS 14.0, *)
+
 
 public struct TranslatableText<Content: View>: View {
     @ViewBuilder let content: () -> Content
